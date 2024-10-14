@@ -1,20 +1,27 @@
-const register = async (req, res) => {
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+
+exports.register = async (req, res) => {
+  try {
     const { username, password } = req.body;
-    
-    // Validate password length
-    if (password.length < 8 || password.length > 12) {
-      return res.status(400).json({ message: "Password must be 8-12 characters long" });
+    const user = new User({ username, password });
+    await user.save();
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    res.status(400).json({ message: "Error registering user" });
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
-    
-    try {
-      const user = new User({ username, password });
-      await user.save();
-      res.status(201).json({ message: "User registered successfully" });
-    } catch (error) {
-      if (error.code === 11000) {
-        res.status(400).json({ message: "Username already exists" });
-      } else {
-        res.status(500).json({ message: "Error registering user" });
-      }
-    }
-  };
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+    res.json({ token });
+  } catch (error) {
+    res.status(400).json({ message: "Error logging in" });
+  }
+};
